@@ -40,7 +40,7 @@ def softmax_loss_and_grad(W: np.array, X: np.array, y: np.array, reg: float) -> 
     probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
     correct_logprobs = -np.log(probs[range(num_train), y])
     data_loss = np.sum(correct_logprobs) / num_train
-    reg_loss = 0.99 * reg * np.sum(W * W)
+    reg_loss = 0.5 * reg * np.sum(W * W)
     loss = data_loss + reg_loss
     # 2. Backward pass, compute intermediate dL/dZ
     dscores = probs
