@@ -13,7 +13,7 @@ def softmax(Z: np.array) -> np.array:
     :param Z: 2D array, shape (N, C)
     :return: softmax 2D array, shape (N, C)
     """
-    return Z
+    return np.exp(Z) / np.sum(np.exp(Z), axis=-1, keepdims=True)
 
 
 def softmax_loss_and_grad(W: np.array, X: np.array, y: np.array, reg: float) -> tuple:
@@ -29,15 +29,27 @@ def softmax_loss_and_grad(W: np.array, X: np.array, y: np.array, reg: float) -> 
     """
     loss = 0.0
     dL_dW = np.zeros_like(W)
+
     # *****START OF YOUR CODE*****
+
     # 1. Forward pass, compute loss as sum of data loss and regularization loss [sum(W ** 2)]
 
+    num_train = X.shape[0]
+    scores = np.dot(X, W)
+    exp_scores = np.exp(scores)
+    probs = exp_scores / np.sum(exp_scores, axis=1, keepdims=True)
+    correct_logprobs = -np.log(probs[range(num_train), y])
+    data_loss = np.sum(correct_logprobs) / num_train
+    reg_loss = 0.99 * reg * np.sum(W * W)
+    loss = data_loss + reg_loss
     # 2. Backward pass, compute intermediate dL/dZ
-
+    dscores = probs
+    dscores[range(num_train), y] -= 1
+    dscores /= num_train
     # 3. Compute data gradient dL/dW
-
+    dL_dW = np.dot(X.T, dscores)
     # 4. Compute regularization gradient
-
+    dL_dW += reg * W
     # 5. Return loss and sum of data + reg gradients
 
     # *****END OF YOUR CODE*****
@@ -76,33 +88,20 @@ class SoftmaxClassifier:
         loss_history = []
         for it in range(num_iters):
             X_batch, y_batch = None, None
-            #########################################################################
-            # TODO 3:                                                               #
-            # Sample batch_size elements from the training data and their           #
-            # corresponding labels to use in this round of gradient descent.        #
-            # Store the data in X_batch and their corresponding labels in           #
-            # y_batch; after sampling X_batch should have shape (batch_size, dim)   #
-            # and y_batch should have shape (batch_size,)                           #
-            #                                                                       #
-            # Hint: Use np.random.choice to generate batch_indices. Sampling with   #
-            # replacement is faster than sampling without replacement.              #
-            #########################################################################
-            # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+            # ***START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)***
+            batch_indices = np.random.choice(num_train, batch_size, replace=True)
+            X_batch = X[batch_indices]
+            y_batch = y[batch_indices]
+            # ***END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)***
 
             # evaluate loss and gradient
             loss, grad = softmax_loss_and_grad(self.W, X_batch, y_batch, reg)
             loss_history.append(loss)
 
             # perform parameter update
-            #########################################################################
-            # TODO 4:                                                               #
-            # Update the weights using the gradient and the learning rate.          #
-            #########################################################################
-            # *****START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
-
-            # *****END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)*****
+            # ***START OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)***
+            self.W -= learning_rate * grad
+            # ***END OF YOUR CODE (DO NOT DELETE/MODIFY THIS LINE)***
             if it % 100 == 0:
                 if verbose:
                     print(f'iteration {it} / {num_iters}: loss {loss:.3f} ')
@@ -133,13 +132,14 @@ def train():
     # weights images must look like in lecture slides
 
     # ***** START OF YOUR CODE *****
-    learning_rate = 0
-    reg = 0
-    num_iters = 0
-    batch_size = 0
-    # ******* END OF YOUR CODE ************
+    learning_rate = 1e-3
+    reg = 1e-4
+    num_iters = 10000
+    batch_size = 64
+    # ***** END OF YOUR CODE **********
 
     (x_train, y_train), (x_test, y_test) = get_preprocessed_data()
+    x_train = x_train.astype(np.float16)
     cls = SoftmaxClassifier()
     t0 = datetime.datetime.now()
     loss_history = cls.train(x_train, y_train, learning_rate, reg, num_iters, batch_size, verbose=True)
@@ -147,30 +147,34 @@ def train():
     dt = t1 - t0
 
     report = f"""# Training Softmax classifier  
-datetime: {t1.isoformat(' ', 'seconds')}  
-Well done in: {dt.seconds} seconds  
-learning_rate = {learning_rate}  
-reg = {reg}  
-num_iters = {num_iters}  
-batch_size = {batch_size}  
+    datetime: {t1.isoformat(' ', 'seconds')}  
+    Well done in: {dt.seconds} seconds  
+    learning_rate = {learning_rate}  
+    reg = {reg}  
+    num_iters = {num_iters}  
+    batch_size = {batch_size}  
 
-Final loss: {loss_history[-1]}   
-Train accuracy: {cls.evaluate(x_train, y_train)}   
-Test accuracy: {cls.evaluate(x_test, y_test)}  
-    
-<img src="weights.png">  
-<br>
-<img src="loss.png">
-"""
+    Final loss: {loss_history[-1]}   
+    Train accuracy: {cls.evaluate(x_train, y_train)}   
+    Test accuracy: {cls.evaluate(x_test, y_test)}  
+
+    <img src="weights.png">  
+    <br>
+    <img src="loss.png">
+    """
 
     print(report)
 
-    out_dir = 'output/seminar2'
+    out_dir = 'output\\seminar2'
     report_path = os.path.join(out_dir, 'report.md')
     with open(report_path, 'w') as f:
         f.write(report)
     visualize_weights(cls, out_dir)
     visualize_loss(loss_history, out_dir)
+
+
+# if name == 'main':
+# train()
 
 
 if __name__ == '__main__':
